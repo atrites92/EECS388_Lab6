@@ -56,9 +56,48 @@ static int32_t get_true_temperature( int16_t ut_val )
 int32_t ret;
 
 /* Task 1.3 - Use the calib_data values to calculate the tempeature from the ut value */
-
+int32_t x1 = (((((int32_t)ut_val - calib_data.cal_AC6)) * calib_data.cal_AC5) / (32768));
+int32_t x2 = ((int32_t)calib_data.cal_MC * (2048)) / (x1 + calib_data.cal_MD);
+int32_t b5 = x1 + x2;
+ret = (b5 + 8) / (16);
 return ret;
 }
+
+/******************************************************************************
+ *   Function: get_true_pressure() - Get True Pressure
+ *      Pre condition: 
+ *          None
+ *      Post condition: 
+ *          Takes raw UT and UP values and converts to Pa
+ *******************************************************************************/
+
+
+//static int32_t get_true_pressure( int16_t ut_val, int16_t up_val)
+//{
+//int16_t oss = read_register(0xF4);
+//int32_t ret;
+// Task 1.4 - Use the calib_data values to calculate the pressure from the ut value
+//int32_t x1 = (((((int32_t)ut_val - calib_data.cal_AC6)) * calib_data.cal_AC5) / (32768));
+//int32_t x2 = ((int32_t)calib_data.cal_MC * (2048)) / (x1 + calib_data.cal_MD);
+//int32_t b5 = x1 + x2;
+//int32_t b6 = b5 - 4000;
+//x1 =  (((int32_t)calib_data.cal_B2 * (b6 * b6 / 4096)) / 2048);
+//x2 = (int32_t)calib_data.cal_AC2 * b6 / 2048;
+//int32_t x3 = x1 + x2;
+//int32_t b3 = (((((long)calib_data.cal_AC1 * 4 + x3) << oss) + 2) / 4);
+//x1 = (int32_t)calib_data.cal_AC3 * b6 / 8192;
+//x2 = calib_data.cal_B1 * (b6 * b6 / 4096) / 32768;
+//x3 = ((x1 + x2) + 2) / 4;
+//int32_t b4 = calib_data.cal_AC4 * (unsigned long)(x3 + 32768) / 32768;
+//int32_t b7 = ((unsigned long)up_val - b3) * (50000 >> oss);
+//if (b7 < 0x80000000){ ret = (b7 * 2) / b4;}
+//else {ret = (b7/b4) * 2;}
+//x1 = (ret / 128) * (ret / 128);
+//x1 = (x1 * 3038) / 32768;
+//x2 = (-7357 * ret) / 32768;
+//ret = ret + (x1 + x2 + 3791) / 16;
+//return ret;
+//}
 
 /******************************************************************************
  *   Function: read_calibration() - Read Calibration
@@ -177,7 +216,7 @@ lsb = i2c_read_nack();                // Read 0xF7 address, nack to complete rea
 i2c_stop();
 
 /* Task 1.2 - Put together the msb and lsb into a 16-bit ut value to return it */
-int16_t ut;
+int16_t ut = (msb << 8) | lsb;
 
 return (ut);  
 }
@@ -215,7 +254,7 @@ void loop()
 {
 /* Task 1.1 - Use the read_register() to test out communication with the BMP180
               Print out the ID and confirm communication, it should be 0x55  */
-
+ser_printf("%x", read_register(ID_REG_ADDR));
 
 /* Task 1.2 - Complete read_temperature_adc() - See function for details */
 int16_t ut = read_temperature_adc();                //raw ut adc value
@@ -226,6 +265,13 @@ int32_t temp_f = ((temperature * 9) / 5) + 320;     //convert to tenths of degre
 
 ser_printf("Temp: %ld.%ld °C\n", temperature / 10, abs(temperature % 10));
 ser_printf("Temp: %ld.%ld °F\n", temp_f / 10, abs(temp_f % 10));
+
+/*
+int16_t up = read_pressure_adc();
+int32_t pressure = get_true_pressure(ut, up);
+
+ser_printf("Pressure: %d\n", pressure);
+*/
 
 delay_ms(1000); // Sample every second
 }
