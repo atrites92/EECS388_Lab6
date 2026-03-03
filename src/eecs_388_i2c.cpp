@@ -70,34 +70,35 @@ return ret;
  *      Post condition: 
  *          Takes raw UT and UP values and converts to Pa
  *******************************************************************************/
+// Task 1.4 BONUS
+static int32_t get_true_pressure( int16_t ut_val, int16_t up_val)
+{
+int16_t oss = read_register(0xF4);
+int32_t ret;
 
+//Calculate pressure algorithm from data sheet
+int32_t x1 = (((((int32_t)ut_val - calib_data.cal_AC6)) * calib_data.cal_AC5) / (32768));
+int32_t x2 = ((int32_t)calib_data.cal_MC * (2048)) / (x1 + calib_data.cal_MD);
+int32_t b5 = x1 + x2;
+int32_t b6 = b5 - 4000;
+x1 =  (((int32_t)calib_data.cal_B2 * (b6 * b6 / 4096)) / 2048);
+x2 = (int32_t)calib_data.cal_AC2 * b6 / 2048;
+int32_t x3 = x1 + x2;
+int32_t b3 = (((((int32_t)calib_data.cal_AC1 * 4 + x3) << oss) + 2) / 4);
+x1 = (int32_t)calib_data.cal_AC3 * b6 / 8192;
+x2 = calib_data.cal_B1 * (b6 * b6 / 4096) / 32768;
+x3 = ((x1 + x2) + 2) / 4;
+int32_t b4 = calib_data.cal_AC4 * (uint32_t)(x3 + 32768) / 32768;
+int32_t b7 = ((uint32_t)up_val - b3) * (50000 >> oss);
+if (b7 < 0x80000000){ ret = (b7 * 2) / b4;}
+else {ret = (b7/b4) * 2;}
+x1 = (ret / 128) * (ret / 128);
+x1 = (x1 * 3038) / 32768;
+x2 = (-7357 * ret) / 32768;
+ret = ret + (x1 + x2 + 3791) / 16;
 
-//static int32_t get_true_pressure( int16_t ut_val, int16_t up_val)
-//{
-//int16_t oss = read_register(0xF4);
-//int32_t ret;
-// Task 1.4 - Use the calib_data values to calculate the pressure from the ut value
-//int32_t x1 = (((((int32_t)ut_val - calib_data.cal_AC6)) * calib_data.cal_AC5) / (32768));
-//int32_t x2 = ((int32_t)calib_data.cal_MC * (2048)) / (x1 + calib_data.cal_MD);
-//int32_t b5 = x1 + x2;
-//int32_t b6 = b5 - 4000;
-//x1 =  (((int32_t)calib_data.cal_B2 * (b6 * b6 / 4096)) / 2048);
-//x2 = (int32_t)calib_data.cal_AC2 * b6 / 2048;
-//int32_t x3 = x1 + x2;
-//int32_t b3 = (((((long)calib_data.cal_AC1 * 4 + x3) << oss) + 2) / 4);
-//x1 = (int32_t)calib_data.cal_AC3 * b6 / 8192;
-//x2 = calib_data.cal_B1 * (b6 * b6 / 4096) / 32768;
-//x3 = ((x1 + x2) + 2) / 4;
-//int32_t b4 = calib_data.cal_AC4 * (unsigned long)(x3 + 32768) / 32768;
-//int32_t b7 = ((unsigned long)up_val - b3) * (50000 >> oss);
-//if (b7 < 0x80000000){ ret = (b7 * 2) / b4;}
-//else {ret = (b7/b4) * 2;}
-//x1 = (ret / 128) * (ret / 128);
-//x1 = (x1 * 3038) / 32768;
-//x2 = (-7357 * ret) / 32768;
-//ret = ret + (x1 + x2 + 3791) / 16;
-//return ret;
-//}
+return ret;
+}
 
 /******************************************************************************
  *   Function: read_calibration() - Read Calibration
@@ -266,7 +267,7 @@ int32_t temp_f = ((temperature * 9) / 5) + 320;     //convert to tenths of degre
 ser_printf("Temp: %ld.%ld °C\n", temperature / 10, abs(temperature % 10));
 ser_printf("Temp: %ld.%ld °F\n", temp_f / 10, abs(temp_f % 10));
 
-/*
+/* // Task 1.4 BONUS
 int16_t up = read_pressure_adc();
 int32_t pressure = get_true_pressure(ut, up);
 
