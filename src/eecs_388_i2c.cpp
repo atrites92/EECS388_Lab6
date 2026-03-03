@@ -222,6 +222,9 @@ int16_t ut = (msb << 8) | lsb;
 return (ut);  
 }
 
+//TODO - Need to add read_pressure_adc() function or read it above and return
+//UT and UP and then split the returned 32 bit integer 
+
 /******************************************************************************
  *   Function: setup() - Initializes the Arduino System
  *      Pre condition: 
@@ -259,6 +262,11 @@ ser_printf("%x", read_register(ID_REG_ADDR));
 
 /* Task 1.2 - Complete read_temperature_adc() - See function for details */
 int16_t ut = read_temperature_adc();                //raw ut adc value
+//IF we use the above function to get up as well then change the line above to
+// int32_t utup = read_temp_and_press (or something)
+// and then split it
+//int16_t ut = first 16 bits utup
+//int16_t up = second 16 bits of utup
 
 /* Task 1.3 - Complete get_true_temperature() - See function for details */
 int32_t temperature = get_true_temperature( ut );   //tenths of degrees celsius
@@ -268,7 +276,7 @@ ser_printf("Temp: %ld.%ld °C\n", temperature / 10, abs(temperature % 10));
 ser_printf("Temp: %ld.%ld °F\n", temp_f / 10, abs(temp_f % 10));
 
 /* // Task 1.4 BONUS
-int16_t up = read_pressure_adc();
+int16_t up = read_pressure_adc(); //OR use {int16_t up} from above
 int32_t pressure = get_true_pressure(ut, up);
 
 ser_printf("Pressure: %d\n", pressure);
