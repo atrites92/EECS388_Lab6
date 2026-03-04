@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "eecs_388_lib.h"
 
@@ -65,14 +66,7 @@ ret = (b5 + 8) / (16);
 return ret;
 }
 
-/******************************************************************************
- *   Function: get_true_pressure() - Get True Pressure
- *      Pre condition: 
- *          None
- *      Post condition: 
- *          Takes raw UT and UP values and converts to Pa
- *******************************************************************************/
-// Task 1.4 BONUS
+// BONUS TASK
 static int32_t get_true_pressure( int16_t ut_val, int16_t up_val)
 {
 int32_t ret;
@@ -223,25 +217,21 @@ int16_t ut = (msb << 8) | lsb;
 return (ut);  
 }
 
-//TODO - Need to add read_pressure_adc() function or read it above and return
-//UT and UP and then split the returned 32 bit integer 
 
-static int32_t read_pressure_adc(uint8_t oss)
+//BONUS TASK
+static int32_t read_pressure_adc()
 {
   uint8_t msb, lsb, xlsb;
 
   //Start pressure measurement
   i2c_start();
   i2c_write_address(BMP180_WRITE);
-  i2c_write((uint8_t)(0x34 + (oss << 6)));
+  i2c_write((uint8_t)(0x34 + (BMP180_OSS << 6)));
   i2c_stop();
 
   // Conversion time depends on OSS (datasheet Fig 3)
-  switch (oss) {
-    case 0: delay_us(4500);  break;  // 4.5ms
-    case 1: delay_ms(8);     break;  // 7.5ms (use 8ms)
-    case 2: delay_ms(14);    break;  // 13.5ms (use 14ms)
-    default: delay_ms(26);   break;  // 25.5ms (use 26ms)
+  if (BMP180_OSS == 0){
+  delay_us(4500);
   }
 
   // Read 3 bytes from 0xF6..0xF8
@@ -258,7 +248,7 @@ static int32_t read_pressure_adc(uint8_t oss)
   i2c_stop();
 
   int32_t up = (((int32_t)msb << 16) | ((int32_t)lsb << 8) | (int32_t)xlsb);
-  up >>= (8 - oss);
+  up >>= (8 - BMP180_OSS);
   return up;
 }
 
@@ -304,15 +294,16 @@ int16_t ut = read_temperature_adc();                //raw ut adc value
 int32_t temperature = get_true_temperature( ut );   //tenths of degrees celsius
 int32_t temp_f = ((temperature * 9) / 5) + 320;     //convert to tenths of degrees farenheit
 
-ser_printf("Temp: %ld.%ld °C\n", temperature / 10, abs(temperature % 10));
-ser_printf("Temp: %ld.%ld °F\n", temp_f / 10, abs(temp_f % 10));
+ser_printf("Temp: %ld.%ld °C", temperature / 10, abs(temperature % 10));
+ser_printf("Temp: %ld.%ld °F", temp_f / 10, abs(temp_f % 10));
 
 // Task 1.4 BONUS
-int32_t up = read_pressure_adc(BMP180_OSS);
+int32_t up = read_pressure_adc();
 int32_t pressure = get_true_pressure(ut, up); //Pa
 
+//Convert to postive value and hPa
+pressure = pressure / -1;
 ser_printf("Pressure: %ld Pa\n", pressure);
-
 
 delay_ms(1000); // Sample every second
 }
