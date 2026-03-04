@@ -19,6 +19,8 @@
 
 #define CTRL_TEMP_CMND  (0x2E)    // Measure control register command to start temp conversion
 
+#define BMP180_OSS      (0)
+
 #define BMP180_READ     ((BMP180_ADDR << 1) | 1)    // Read from BMP180 register
 #define BMP180_WRITE    ((BMP180_ADDR << 1) | 0)    // Write to BMP180 register
 
@@ -73,7 +75,6 @@ return ret;
 // Task 1.4 BONUS
 static int32_t get_true_pressure( int16_t ut_val, int16_t up_val)
 {
-int16_t oss = read_register(0xF4);
 int32_t ret;
 
 //Calculate pressure algorithm from data sheet
@@ -84,12 +85,12 @@ int32_t b6 = b5 - 4000;
 x1 =  (((int32_t)calib_data.cal_B2 * (b6 * b6 / 4096)) / 2048);
 x2 = (int32_t)calib_data.cal_AC2 * b6 / 2048;
 int32_t x3 = x1 + x2;
-int32_t b3 = (((((int32_t)calib_data.cal_AC1 * 4 + x3) << oss) + 2) / 4);
+int32_t b3 = (((((int32_t)calib_data.cal_AC1 * 4 + x3) << BMP180_OSS) + 2) / 4);
 x1 = (int32_t)calib_data.cal_AC3 * b6 / 8192;
 x2 = calib_data.cal_B1 * (b6 * b6 / 4096) / 32768;
 x3 = ((x1 + x2) + 2) / 4;
 int32_t b4 = calib_data.cal_AC4 * (uint32_t)(x3 + 32768) / 32768;
-int32_t b7 = ((uint32_t)up_val - b3) * (50000 >> oss);
+int32_t b7 = ((uint32_t)up_val - b3) * (50000 >> BMP180_OSS);
 if (b7 < 0x80000000){ ret = (b7 * 2) / b4;}
 else {ret = (b7/b4) * 2;}
 x1 = (ret / 128) * (ret / 128);
@@ -225,6 +226,42 @@ return (ut);
 //TODO - Need to add read_pressure_adc() function or read it above and return
 //UT and UP and then split the returned 32 bit integer 
 
+static int32_t read_pressure_adc(uint8_t oss)
+{
+  uint8_t msb, lsb, xlsb;
+
+  //Start pressure measurement
+  i2c_start();
+  i2c_write_address(BMP180_WRITE);
+  i2c_write((uint8_t)(0x34 + (oss << 6)));
+  i2c_stop();
+
+  // Conversion time depends on OSS (datasheet Fig 3)
+  switch (oss) {
+    case 0: delay_us(4500);  break;  // 4.5ms
+    case 1: delay_ms(8);     break;  // 7.5ms (use 8ms)
+    case 2: delay_ms(14);    break;  // 13.5ms (use 14ms)
+    default: delay_ms(26);   break;  // 25.5ms (use 26ms)
+  }
+
+  // Read 3 bytes from 0xF6..0xF8
+  i2c_start();
+  i2c_write_address(BMP180_WRITE);
+  i2c_write(ADC_MSB_ADDR);
+  delay_us(15);
+
+  i2c_start();
+  i2c_write_address(BMP180_READ);
+  msb  = i2c_read_ack();
+  lsb  = i2c_read_ack();
+  xlsb = i2c_read_nack();
+  i2c_stop();
+
+  int32_t up = (((int32_t)msb << 16) | ((int32_t)lsb << 8) | (int32_t)xlsb);
+  up >>= (8 - oss);
+  return up;
+}
+
 /******************************************************************************
  *   Function: setup() - Initializes the Arduino System
  *      Pre condition: 
@@ -262,11 +299,6 @@ ser_printf("%x", read_register(ID_REG_ADDR));
 
 /* Task 1.2 - Complete read_temperature_adc() - See function for details */
 int16_t ut = read_temperature_adc();                //raw ut adc value
-//IF we use the above function to get up as well then change the line above to
-// int32_t utup = read_temp_and_press (or something)
-// and then split it
-//int16_t ut = first 16 bits utup
-//int16_t up = second 16 bits of utup
 
 /* Task 1.3 - Complete get_true_temperature() - See function for details */
 int32_t temperature = get_true_temperature( ut );   //tenths of degrees celsius
@@ -275,12 +307,12 @@ int32_t temp_f = ((temperature * 9) / 5) + 320;     //convert to tenths of degre
 ser_printf("Temp: %ld.%ld °C\n", temperature / 10, abs(temperature % 10));
 ser_printf("Temp: %ld.%ld °F\n", temp_f / 10, abs(temp_f % 10));
 
-/* // Task 1.4 BONUS
-int16_t up = read_pressure_adc(); //OR use {int16_t up} from above
-int32_t pressure = get_true_pressure(ut, up);
+// Task 1.4 BONUS
+int32_t up = read_pressure_adc(BMP180_OSS);
+int32_t pressure = get_true_pressure(ut, up); //Pa
 
-ser_printf("Pressure: %d\n", pressure);
-*/
+ser_printf("Pressure: %ld Pa\n", pressure);
+
 
 delay_ms(1000); // Sample every second
 }
